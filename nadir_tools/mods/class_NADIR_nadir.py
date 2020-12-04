@@ -37,8 +37,6 @@ class NADIR_nadir(NADIR_data):
         ds = ds.isel(time=index)
         path=ds.encoding['source']
         nm_sat = ['alg','h2g','j2g','j2n','j3','s3a','c2']
-        print(nm_sat[i] for i in range(0,len(nm_sat)) \
-               if re.search(nm_sat[i],path))
         id_sat=[nm_sat[i] for i in range(0,len(nm_sat)) \
                if re.search(nm_sat[i],path)][0]
         ds = ds.update({'sat':('time',np.repeat(id_sat,len(ds.time.values)))})
@@ -70,7 +68,7 @@ class NADIR_nadir(NADIR_data):
         return ds
 
 
-    def __init__(self,list_files,domain,dateref=None,extent=[-65,-55,30,40]):
+    def __init__(self,list_files,domain,dateref=None,extent=[-65,-55,30,40],preproc="v1"):
         ''' '''
         # preproc: 1 or 2
         NADIR_data.__init__(self)
@@ -81,7 +79,7 @@ class NADIR_nadir(NADIR_data):
         else: 
             extent=[-65.,-55.,30.,40.]
         if len(list_files)>0:
-            if len(list_files)>1:
+            if preproc=="v1":
                 if domain=="OSMOSIS":
                     self.data = xr.open_mfdataset(list_files, preprocess=self.preprocess1)
                 if domain=="GULFSTREAM":
@@ -117,7 +115,7 @@ class NADIR_nadir(NADIR_data):
         self.gridded=False
 
     @classmethod
-    def init2(cls,domain,dateref,t1,t2,id_phase):
+    def init2(cls,domain,dateref,t1,t2,id_phase,preproc="v1"):
         ''' '''
         t1_fmt=datetime.strptime(t1,'%Y-%m-%d')
         t2_fmt=datetime.strptime(t2,'%Y-%m-%d')    
@@ -126,7 +124,7 @@ class NADIR_nadir(NADIR_data):
             list_files=[rawdatapath+"/alongtracks/"+domain+"/training/NADIR_"+t+"_1d.nc" for t in daterange if os.path.exists(rawdatapath+"/alongtracks/"+domain+"/training/NADIR_"+t+"_1d.nc")]
         else:
             list_files=[rawdatapath+"/alongtracks/"+domain+"/validation/NADIR_"+t+"_1d.nc" for t in daterange if os.path.exists(rawdatapath+"/alongtracks/"+domain+"/validation/NADIR_"+t+"_1d.nc")]
-        return cls(list_files,domain,dateref)
+        return cls(list_files,domain,dateref,preproc=preproc)
 
     def sel_time(self,t1,t2):
         ''' '''

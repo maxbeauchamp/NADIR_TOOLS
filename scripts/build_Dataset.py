@@ -9,6 +9,7 @@ if domain=="OSMOSIS":
 elif domain=='GULFSTREAM':
     extent=[-65.,-55.,33.,43.]
     mask_file=None
+N_filter=[3,5,10]
 
 if __name__ == '__main__':
 
@@ -22,7 +23,7 @@ if __name__ == '__main__':
                     + timedelta(days=-1*nadir_lag),"%Y-%m-%d")
         date2_nadir=datetime.strftime(datetime.strptime(date,"%Y-%m-%d")\
                     + timedelta(days=nadir_lag),"%Y-%m-%d")
-        nadir=NADIR_nadir.init2(domain,date,date1_nadir,date2_nadir,id_phase)
+        nadir=NADIR_nadir.init2(domain,date,date1_nadir,date2_nadir,id_phase,preproc="v2")
         nadir.sel_spatial(extent)   
         if len(nadir.data.longitude)==0:
             # create empty swot dataset 
@@ -37,15 +38,25 @@ if __name__ == '__main__':
                                    'Time'     : (('time'),np.empty((1))),\
                                    'ssh'      : (('time'),np.empty((1)))},\
                         coords={'time': [time_u]})
+            for N in N_filter:
+                nadir.data = nadir.data.assign({"ssh_filtered_N"+str(N): (('time'),np.empty((1)))})
+
         # conversion on grid
         # modifications of time values to force unique time values after regridding
         new_time = [(np.datetime64(datetime.strptime(date,'%Y-%m-%d') + timedelta(seconds=dt))-\
                      np.datetime64('2017-01-01T00:00:00Z')) / np.timedelta64(1, 's') \
                      for dt in np.linspace(0,0.99,len(nadir.data.time)) ]
         nadir.data = nadir.data.assign(time=new_time)
+
+        if len(nadir.data.longitude)!=1:
+            for N in N_filter:
+                # create filtered data
+                nadir.filtering(N)
+
         nadir=nadir.convert_on_grid(mask_file,\
                                     longitude_bnds=(extent[0],extent[1]+0.05,0.05),\
-                                    latitude_bnds=(extent[2],extent[3]+0.05,0.05))
+                                    latitude_bnds=(extent[2],extent[3]+0.05,0.05),
+                                    N_filter=N_filter)
         # concatenation along time
         if i != 0:
             Gnadir=xr.concat([Gnadir,nadir],dim='time',data_vars='minimal')    

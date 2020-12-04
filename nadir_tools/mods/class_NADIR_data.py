@@ -6,8 +6,22 @@ class NADIR_data(NADIR):
     def __init__(self):
         ''' '''
         NADIR.__init__(self)
-        
-    def convert_on_grid(self,mask_file=None,longitude_bnds=(-65,-54.95,0.05),latitude_bnds=(30,40.05,0.05),coord_grid=False):
+
+    def filtering(self,N):
+        ''' compute filtered SSH version '''
+
+        filter_val = np.zeros(len(self.data.sat.values))
+
+        for sat in np.unique(self.data.sat.values):
+            idsat = np.where(self.data.sat.values == sat)[0]
+            nn = [ np.argsort(np.abs(self.data.time.values[idsat] - time))[:2*N] \
+                    for time in self.data.time.values[idsat] ]
+            filter_val[idsat] = [ np.nanmean(self.data.ssh.values[idsat[idtime]]) for idtime in nn ]
+
+        # add filtered value 
+        self.data = self.data.assign({"ssh_filtered_N"+str(N): (('time'),filter_val) })
+
+    def convert_on_grid(self,mask_file=None,longitude_bnds=(-65,-54.95,0.05),latitude_bnds=(30,40.05,0.05),coord_grid=False, N_filter=None):
         ''' '''
 
         # create longitude and latitude of the subdomain grid
@@ -66,6 +80,12 @@ class NADIR_data(NADIR):
                         coords={'longitude': longitude,\
                                 'latitude': latitude,\
                                 'time': time_u})
+        if N_filter is not None:
+            for N in N_filter:
+                ssh_filter = np.empty((len(longitude),len(latitude),len(time_u)),dtype=object) ; ssh_filter.fill(np.nan)
+                ssh_filter[xi[idx], yi[idx], days[idx]]=self.data["ssh_filtered_N"+str(N)].values[idx]
+                data_on_grid = data_on_grid.assign({"ssh_filtered_N"+str(N): (('time','latitude','longitude'),ssh_filter.transpose(2,1,0)) })
+
         data_on_grid.time.attrs['units']='days since 2017-01-01 00:00:00'
         return data_on_grid 
         
